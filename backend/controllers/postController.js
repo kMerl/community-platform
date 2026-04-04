@@ -147,3 +147,43 @@ exports.removePost = async(req,res) => {
     res.json(post);
 };
 
+
+
+//comments
+exports.addComment = async (req, res) => {
+    try{
+        const {text} = req.body;
+        const post = await Post.findById(req.params.id);
+
+        if(!post){
+            return res.status(404).json({message: "Post not found"});
+        }
+
+        post.comments.push({
+            userId: req.user.id,
+            text
+        });
+
+        await post.save()
+        res.json(post);
+    }
+    catch (err){
+        res.status(500).json({error: err.message});
+    }
+}
+
+exports.getComments = async (req, res) => {
+    try{
+        const {text} = req.body;
+        const post = await Post.findById(req.params.id);
+
+        if(!post){
+            return res.status(404).json({message: "Post not found"});
+        }
+
+        res.json(post.comments);
+    }
+    catch(err){
+        res.status(500).json({error: err.message});
+    }
+};

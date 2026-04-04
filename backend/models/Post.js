@@ -19,7 +19,7 @@ const postSchema = new mongoose.Schema(
             required: true
         },
 
-        //voting score
+        //voting
         voters: [
             {
                 userId: {
@@ -34,7 +34,7 @@ const postSchema = new mongoose.Schema(
             }
         ],
 
-        //additional fields
+        
         flags: [
             {
                 userId: String,
@@ -46,40 +46,26 @@ const postSchema = new mongoose.Schema(
             type: String,
             enum: ["active", "review", "removed"],
             default: "active"
-        }
-
+        },
+        
+        comments: [
+            {
+                userId: {
+                    type: String,
+                    required: true
+                },
+                text:{
+                    type: String,
+                    required: true
+                },
+                createdAt:{
+                    type: Date,
+                    default: Date.now
+                }   
+            }
+        ]
     },
     { timestamps: true }    
 );
 
 module.exports = mongoose.model("Post", postSchema);
-
-
-
-//for vote count controller logic:::::
-
-// const post = await Post.findById(postId);
-
-// const existingVote = post.voters.find(
-//   v => v.userId.toString() === userId
-// );
-
-// if (!existingVote) {
-//   // new vote
-//   post.voters.push({ userId, voteType });
-//   post.voteCount += voteType;
-
-// } else if (existingVote.voteType !== voteType) {
-//   // change vote
-//   post.voteCount += (voteType - existingVote.voteType);
-//   existingVote.voteType = voteType;
-
-// } else {
-//   // remove vote (same clicked again)
-//   post.voteCount -= existingVote.voteType;
-//   post.voters = post.voters.filter(
-//     v => v.userId.toString() !== userId
-//   );
-// }
-
-// await post.save();
