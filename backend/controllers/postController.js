@@ -150,22 +150,47 @@ exports.removePost = async(req,res) => {
 
 
 //comments
+
+const Comment = require("../models/Comment");
+
 exports.addComment = async (req, res) => {
     try{
-        const {text} = req.body;
+        const {text, parentCommentId} = req.body;
         const post = await Post.findById(req.params.id);
 
         if(!post){
             return res.status(404).json({message: "Post not found"});
         }
 
-        post.comments.push({
-            userId: req.user.id,
-            text
-        });
+        // post.comments.push({
+        //     userId: req.user.id,
+        //     text
+        // });
+        
 
-        await post.save()
-        res.json(post);
+        //validation
+        let parent = null;
+        
+        if (parentCommentId) {
+            const parent = await Comment.findById(parentCommentId);
+
+            if (!parent) {
+                return res.status(404).json({ message: "Parent comment not found" });
+            }
+        }
+
+        const comment = await Comment.create({
+            postId: req.params.id,
+            userId: req.user.id,
+            text,
+            parentCommentId: parentCommentId || null
+        });
+        
+        if (parent){ 
+            parent.replies.push(comment._id);
+            await parent.save();
+        }
+        res.status(201).json(comment);
     }
     catch (err){
         res.status(500).json({error: err.message});
@@ -174,14 +199,33 @@ exports.addComment = async (req, res) => {
 
 exports.getComments = async (req, res) => {
     try{
-        const {text} = req.body;
-        const post = await Post.findById(req.params.id);
+        const comments = await Comment.find({
+            postId: req.params.id
+        })
+            .populate("userId", "name"); //get all comments and replies flat
 
-        if(!post){
-            return res.status(404).json({message: "Post not found"});
-        }
+            const map = {};
 
-        res.json(post.comments);
+            comments.forEach(c => {
+                map[c._id.toString()] = { ...c._doc, replies: [] };
+            });
+
+            const tree = [];
+
+            comments.forEach(c => {
+                if (c.parentCommentId) {
+                    //attach reply to parent
+                     const parent = map[c.parentCommentId.toString()];
+                    
+                     if (parent) {
+                        parent.replies.push(map[c._id.toString()]);
+                    }
+                } else{
+                    tree.push(map[c._id.toString()]); //if top level comment
+                }
+            });
+
+        res.json(tree);
     }
     catch(err){
         res.status(500).json({error: err.message});

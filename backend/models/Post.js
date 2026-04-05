@@ -46,24 +46,24 @@ const postSchema = new mongoose.Schema(
             type: String,
             enum: ["active", "review", "removed"],
             default: "active"
-        },
+        }
         
-        comments: [
-            {
-                userId: {
-                    type: String,
-                    required: true
-                },
-                text:{
-                    type: String,
-                    required: true
-                },
-                createdAt:{
-                    type: Date,
-                    default: Date.now
-                }   
-            }
-        ]
+        // comments: [
+        //     {
+        //         userId: {
+        //             type: String,
+        //             required: true
+        //         },
+        //         text:{
+        //             type: String,
+        //             required: true
+        //         },
+        //         createdAt:{
+        //             type: Date,
+        //             default: Date.now
+        //         }   
+        //     }
+        // ]
     },
     { timestamps: true }    
 );
