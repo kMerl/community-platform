@@ -47,6 +47,11 @@ exports.vote = async (req, res) => {
         );
 
         if(existingVote){
+
+            //undo reputation
+            const oldReputation = (existingVote.voteType === 1?-5:2);
+            await User.findyByIdAndUpdate(post.author, { $inc: { reputation: oldReputation } });
+
             //remove vote
             post.votes -= existingVote.voteType;
             existingVote.voteType = voteType;
@@ -58,9 +63,17 @@ exports.vote = async (req, res) => {
                 voteType
             });
         }
+        
+        //update rep
+        const reputationChange = voteType === 1?5:-2;
+        await User.findByIdAndUpdate(post.author, {
+            $inc: {
+                reputation: reputationChange
+            }
+        })
+
         //update vote
         post.votes += voteType;
-
         await post.save();
         res.json(post);
 
@@ -130,6 +143,11 @@ exports.approvePost = async (req, res) => {
 
     await post.save();
 
+    //reputation
+    await User.findByIdAndUpdate(post.author, {$inc:{
+        reputation: 10
+    }});
+
     res.json(post);
 };
 
@@ -144,6 +162,9 @@ exports.removePost = async(req,res) => {
     
     post.status = "removed";
     await post.save();
+
+    //reputation
+    await User.findByIdAndUpdate(post.author, {$inc: {reputation: -10}});
     res.json(post);
 };
 
@@ -152,6 +173,7 @@ exports.removePost = async(req,res) => {
 //comments
 
 const Comment = require("../models/Comment");
+const User = require("../models/User");
 
 exports.addComment = async (req, res) => {
     try{

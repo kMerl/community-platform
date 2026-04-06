@@ -16,6 +16,13 @@ const {flagPost} = require("../controllers/postController");
 
 const {addComment, getComments} = require("../controllers/postController");
 
+const { 
+    postLimiter, 
+    voteLimiter, 
+    flagLimiter, 
+    commentLimiter 
+} = require("../middleware/rateLimiter");
+
 //const upload = require("../middleware/upload");
 
 
@@ -27,13 +34,13 @@ router.post("/", auth, createPost);
 router.get("/", getPosts);
 
 //vote on post (protected route)
-router.post("/:id/vote", auth, vote);
+router.post("/:id/vote", auth, voteLimiter, vote);
 
 //flag on post (protected)
-router.post("/:id/flag", auth, flagPost);
+router.post("/:id/flag", auth, flagLimiter, flagPost);
 
 //comment on post (protected)
-router.post("/:id/comment", auth, addComment);
+router.post("/:id/comment", auth, commentLimiter, addComment);
 router.get("/:id/comments", getComments);
 
 //moderator
