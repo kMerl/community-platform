@@ -1,41 +1,46 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import API from "../api";
+import PostCard from "../components/PostCard";
+import CreatePost from "../components/CreatePost";
 
-function Home(){
-    const [posts, setPosts] = useState([]);
+function Home({ onLogout }) {
 
-    useEffect(() => {
-        fetchPosts();
-    }, []);
+//   return (
+//     <div>
+//       <h1>Welcome to the Home Page</h1>
+//       <p>You are logged in!</p>
+//       <button onClick={onLogout}>Logout</button>
+//     </div>
+//   );
+// }
 
-    const fetchPosts = async () => {
-        try {
-            const res = await API.get("/posts");
-            console.log("Posts:", res.data);
-            setPosts(res.data);
-        } catch (err) {
-            console.error(err);
-        }
-    };
+  const [posts, setPosts] = useState([]);
 
-    return (
-        <div>
-            <h2>Feed</h2>
-            {posts.map(post => (
-                <div key={post._id}>
-                    <h3>{post.title}</h3>
-                    <p>{post.content}</p>
-                    <p>Votes: {post.votes}</p>
-                </div>
-            ))}
-        </div>
-    );
+  const fetchPosts = async () => {
+    try {
+      const res = await API.get("/posts");
+      setPosts(res.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => { fetchPosts(); }, []);
+
+  return (
+    <div style={{ maxWidth: 680, margin: "0 auto", padding: 24 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+        <h2 style={{ margin: 0 }}>Community Feed</h2>
+        <button onClick={onLogout}>Logout</button>
+      </div>
+      <CreatePost onCreated={fetchPosts} />
+      <div>
+        {posts.map(post => (
+          <PostCard key={post._id} post={post} onUpdate={fetchPosts} />
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export default Home;
-
-// function Home() {
-//   return <h1>HOME WORKING</h1>;
-// }
-
-// export default Home;
