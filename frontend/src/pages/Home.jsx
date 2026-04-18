@@ -1,45 +1,108 @@
-import { useState, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
+
 import API from "../api";
-import PostCard from "../components/PostCard";
 import CreatePost from "../components/CreatePost";
+import PostCard from "../components/PostCard";
 
-function Home({ onLogout }) {
-
-//   return (
-//     <div>
-//       <h1>Welcome to the Home Page</h1>
-//       <p>You are logged in!</p>
-//       <button onClick={onLogout}>Logout</button>
-//     </div>
-//   );
-// }
-
+function Home({ auth, onLogout, onNavigate, onRequireLogin }) {
   const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const feedRef = useRef(null);
 
   const fetchPosts = async () => {
     try {
+      setLoading(true);
       const res = await API.get("/posts");
       setPosts(res.data);
     } catch (err) {
       console.error(err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  useEffect(() => { fetchPosts(); }, []);
+  useEffect(() => {
+    fetchPosts();
+  }, []);
+
+  const scrollToFeed = () => {
+    feedRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   return (
-    <div style={{ maxWidth: 680, margin: "0 auto", padding: 24 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-        <h2 style={{ margin: 0 }}>Community Feed</h2>
-        <button onClick={onLogout}>Logout</button>
-      </div>
-      <CreatePost onCreated={fetchPosts} />
-      <div>
-        {posts.map(post => (
-          <PostCard key={post._id} post={post} onUpdate={fetchPosts} />
-        ))}
-      </div>
-    </div>
+    <main className="page-shell">
+      <section className="hero-panel">
+        <div className="hero-copy">
+          <span className="eyebrow">Community discussion</span>
+          <h1>A focused forum for posts, replies, and community voting.</h1>
+          <p>
+            Browse the latest posts, open any thread for the full discussion,
+            and participate once you sign in.
+          </p>
+          <div className="hero-actions">
+            {auth.isAuthenticated ? (
+              <>
+                <button className="primary-button" onClick={scrollToFeed}>
+                  Open feed
+                </button>
+                <button className="ghost-button" onClick={() => onNavigate(`/profile/${auth.user._id}`)}>
+                  My profile
+                </button>
+                <button className="ghost-button" onClick={onLogout}>
+                  Logout
+                </button>
+              </>
+            ) : (
+              <>
+                <button className="primary-button" onClick={() => onNavigate("/register")}>
+                  Register
+                </button>
+                <button className="ghost-button" onClick={() => onNavigate("/login")}>
+                  Login
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section className="content-grid" ref={feedRef}>
+        <div className="content-main">
+          {auth.isAuthenticated && (
+            <CreatePost
+              currentUser={auth.user}
+              onCreated={fetchPosts}
+            />
+          )}
+
+          <div className="section-heading">
+            <div>
+              <span className="eyebrow">Feed</span>
+              <h2>{auth.isAuthenticated ? "Your home timeline" : "Public preview feed"}</h2>
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="empty-card">Loading the latest conversations...</div>
+          ) : posts.length ? (
+            <div className="feed-list">
+              {posts.map((post) => (
+                <PostCard
+                  key={post._id}
+                  auth={auth}
+                  post={post}
+                  onNavigate={onNavigate}
+                  onRefresh={fetchPosts}
+                  onRequireLogin={onRequireLogin}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="empty-card">The feed is ready for its first post.</div>
+          )}
+        </div>
+      </section>
+    </main>
   );
 }
 

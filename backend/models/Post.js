@@ -20,6 +20,10 @@ const postSchema = new mongoose.Schema(
         },
 
         //voting
+        votes: {
+            type: Number,
+            default: 0
+        },
         voters: [
             {
                 userId: {

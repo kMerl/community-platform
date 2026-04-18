@@ -1,49 +1,89 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+
 import API from "../api";
 
-function CommentNode({ comment, postId, onReply }) {
+const formatTime = (value) =>
+  new Date(value).toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+function CommentNode({ auth, comment, postId, onReply }) {
   const [replying, setReplying] = useState(false);
   const [text, setText] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const submitReply = async () => {
-    if (!text.trim()) return;
+    if (!auth.isAuthenticated || !text.trim()) return;
+
     try {
-      await API.post(`/posts/${postId}/comment`, { text, parentCommentId: comment._id });
+      setSubmitting(true);
+      await API.post(`/posts/${postId}/comment`, {
+        text,
+        parentCommentId: comment._id,
+      });
       setText("");
       setReplying(false);
       onReply();
     } catch (err) {
       console.error(err);
+    } finally {
+      setSubmitting(false);
     }
   };
 
   return (
-    <div style={{ marginLeft: comment.parentCommentId ? 20 : 0, borderLeft: comment.parentCommentId ? "2px solid #eee" : "none", paddingLeft: comment.parentCommentId ? 12 : 0, marginTop: 8 }}>
-      <p style={{ margin: "0 0 4px", fontSize: 14 }}>
-        <strong>{comment.userId?.name}</strong>: {comment.text}
-      </p>
-      <button onClick={() => setReplying(!replying)} style={{ fontSize: 12, color: "#888" }}>Reply</button>
-      {replying && (
-        <div style={{ marginTop: 4 }}>
-          <input
-            value={text}
-            onChange={e => setText(e.target.value)}
-            placeholder="Write a reply..."
-            style={{ padding: 4, marginRight: 4 }}
-          />
-          <button onClick={submitReply}>Send</button>
+    <div className={`comment-node ${comment.parentCommentId ? "comment-reply" : ""}`}>
+      <div className="comment-card">
+        <div className="comment-meta">
+          <strong>{comment.userId?.name || "Community member"}</strong>
+          <span>{formatTime(comment.createdAt)}</span>
         </div>
-      )}
-      {comment.replies?.map(reply => (
-        <CommentNode key={reply._id} comment={reply} postId={postId} onReply={onReply} />
-      ))}
+        <p>{comment.text}</p>
+        {auth.isAuthenticated ? (
+          <button className="text-button" type="button" onClick={() => setReplying((prev) => !prev)}>
+            {replying ? "Cancel" : "Reply"}
+          </button>
+        ) : null}
+      </div>
+
+      {replying ? (
+        <div className="reply-box">
+          <textarea
+            rows={2}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Write a reply..."
+          />
+          <button className="ghost-button compact" type="button" onClick={submitReply} disabled={submitting}>
+            {submitting ? "Sending..." : "Send reply"}
+          </button>
+        </div>
+      ) : null}
+
+      {comment.replies?.length ? (
+        <div className="reply-stack">
+          {comment.replies.map((reply) => (
+            <CommentNode
+              key={reply._id}
+              auth={auth}
+              comment={reply}
+              postId={postId}
+              onReply={onReply}
+            />
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function Comments({ postId }) {
+function Comments({ auth, postId, alwaysOpen = false }) {
   const [comments, setComments] = useState([]);
   const [text, setText] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const fetchComments = async () => {
     try {
@@ -54,33 +94,67 @@ function Comments({ postId }) {
     }
   };
 
-  useEffect(() => { fetchComments(); }, [postId]);
+  useEffect(() => {
+    if (alwaysOpen) {
+      fetchComments();
+    }
+  }, [alwaysOpen, postId]);
 
   const submitComment = async () => {
-    if (!text.trim()) return;
+    if (!auth.isAuthenticated || !text.trim()) return;
+
     try {
+      setSubmitting(true);
       await API.post(`/posts/${postId}/comment`, { text });
       setText("");
       fetchComments();
     } catch (err) {
       console.error(err);
+    } finally {
+      setSubmitting(false);
     }
   };
 
   return (
-    <div style={{ marginTop: 16, borderTop: "1px solid #eee", paddingTop: 12 }}>
-      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-        <input
-          value={text}
-          onChange={e => setText(e.target.value)}
-          placeholder="Add a comment..."
-          style={{ flex: 1, padding: 6 }}
-        />
-        <button onClick={submitComment}>Post</button>
+    <div className="comments-panel">
+      <div className="comments-head">
+        <div>
+          <span className="eyebrow">Discussion</span>
+          <h3>{comments.length ? `${comments.length} top-level comments` : "Start the conversation"}</h3>
+        </div>
       </div>
-      {comments.map(c => (
-        <CommentNode key={c._id} comment={c} postId={postId} onReply={fetchComments} />
-      ))}
+
+      {auth.isAuthenticated ? (
+        <div className="comment-composer">
+          <textarea
+            rows={3}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Add a thoughtful comment..."
+          />
+          <button className="primary-button compact" type="button" onClick={submitComment} disabled={submitting}>
+            {submitting ? "Posting..." : "Comment"}
+          </button>
+        </div>
+      ) : (
+        <div className="comment-signin-hint">Login to join the discussion.</div>
+      )}
+
+      <div className="comment-list">
+        {comments.length ? (
+          comments.map((comment) => (
+            <CommentNode
+              key={comment._id}
+              auth={auth}
+              comment={comment}
+              postId={postId}
+              onReply={fetchComments}
+            />
+          ))
+        ) : (
+          <div className="empty-subtle">No comments yet.</div>
+        )}
+      </div>
     </div>
   );
 }

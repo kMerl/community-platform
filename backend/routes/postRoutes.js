@@ -2,14 +2,17 @@ const express = require("express");
 const router = express.Router();
 
 const auth = require("../middleware/auth");
+const optionalAuth = require("../middleware/optionalAuth");
 
 const {
     createPost, 
     getPosts,
+    getPostById,
     vote,
     getFlaggedPosts,
     approvePost,
-    removePost
+    removePost,
+    getProfile
 } = require("../controllers/postController");
 
 const {flagPost} = require("../controllers/postController");
@@ -31,7 +34,8 @@ const {
 router.post("/", auth, createPost);
 
 //get all posts
-router.get("/", getPosts);
+router.get("/", optionalAuth, getPosts);
+router.get("/profile/:userId", getProfile);
 
 //vote on post (protected route)
 router.post("/:id/vote", auth, voteLimiter, vote);
@@ -47,5 +51,6 @@ router.get("/:id/comments", getComments);
 router.get("/flagged", auth, getFlaggedPosts);
 router.post("/:id/approve", auth, approvePost);
 router.post("/:id/remove", auth, removePost);
+router.get("/:id", optionalAuth, getPostById);
 
 module.exports = router;

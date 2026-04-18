@@ -21,6 +21,11 @@ const userSchema = new mongoose.Schema({
     reputation: {
         type: Number,
         default: 0
+    },
+    bio: {
+        type: String,
+        default: "",
+        maxlength: 280
     }
 }, { timestamps: true });
 

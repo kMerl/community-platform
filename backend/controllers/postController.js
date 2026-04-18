@@ -1,6 +1,44 @@
 //vote on post
 const Post = require("../models/Post"); 
 //const cloudinary = require("../config/cloudinary");
+const Comment = require("../models/Comment");
+const User = require("../models/User");
+
+const buildPostQuery = (extra = {}) =>
+    Post.find(extra)
+        .populate("author", "name reputation createdAt")
+        .sort({ createdAt: -1 });
+
+const attachCommentStats = async (posts, currentUserId) => {
+    const postIds = posts.map((post) => post._id);
+    const commentStats = await Comment.aggregate([
+        { $match: { postId: { $in: postIds } } },
+        {
+            $group: {
+                _id: "$postId",
+                commentCount: { $sum: 1 }
+            }
+        }
+    ]);
+
+    const statsMap = commentStats.reduce((acc, item) => {
+        acc[item._id.toString()] = item.commentCount;
+        return acc;
+    }, {});
+
+    return posts.map((post) => {
+        const data = post.toObject();
+        const existingVote = currentUserId
+            ? post.voters.find((vote) => vote.userId.toString() === currentUserId)
+            : null;
+
+        return {
+            ...data,
+            commentCount: statsMap[post._id.toString()] || 0,
+            viewerVote: existingVote?.voteType || 0
+        };
+    });
+};
 
 //create post
 
@@ -22,20 +60,47 @@ exports.createPost = async(req, res) => {
 
 exports.getPosts = async (req, res) => {
     try{
-        const posts = await Post.find()
-        .populate("author", "name")
-        .sort({createdAt: -1});
-    
-        res.json(posts);
+        const query = { status: "active" };
+
+        if (req.query.author) {
+            query.author = req.query.author;
+        }
+
+        const posts = await buildPostQuery(query);
+        const hydratedPosts = await attachCommentStats(posts, req.user?.id);
+
+        res.json(hydratedPosts);
     } catch(err){
         res.status(500).json({error: err.message});
     }  
+};
+
+exports.getPostById = async (req, res) => {
+    try {
+        const post = await Post.findOne({
+            _id: req.params.id,
+            status: { $ne: "removed" }
+        }).populate("author", "name reputation createdAt");
+
+        if (!post) {
+            return res.status(404).json({ message: "Post not found" });
+        }
+
+        const [hydratedPost] = await attachCommentStats([post], req.user?.id);
+        res.json(hydratedPost);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 };
 
 //vote
 exports.vote = async (req, res) => {
     try{
         const {voteType} = req.body;
+
+        if (![1, -1].includes(voteType)) {
+            return res.status(400).json({ message: "Invalid vote type" });
+        }
         
         const post = await Post.findById(req.params.id);
 
@@ -50,7 +115,7 @@ exports.vote = async (req, res) => {
 
             //undo reputation
             const oldReputation = (existingVote.voteType === 1?-5:2);
-            await User.findyByIdAndUpdate(post.author, { $inc: { reputation: oldReputation } });
+            await User.findByIdAndUpdate(post.author, { $inc: { reputation: oldReputation } });
 
             //remove vote
             post.votes -= existingVote.voteType;
@@ -85,7 +150,7 @@ exports.vote = async (req, res) => {
 //flag post
 exports.flagPost = async (req, res) => {
     try{
-        const {reason} = req.body;
+        const {reason = "Needs moderator review"} = req.body;
         const post = await Post.findById(req.params.id);
 
         if (!post){
@@ -103,12 +168,12 @@ exports.flagPost = async (req, res) => {
     
     //add flag
     post.flags.push({
-        userID: req.user.id,
+        userId: req.user.id,
         reason
     });
     //threshold
     if (post.flags.length >= 3){
-        post.status = "under_review";
+        post.status = "review";
     }
 
     await post.save();
@@ -125,7 +190,7 @@ exports.getFlaggedPosts = async (req, res) => {
         return res.status(403).json({ msg: "Access denied" });
     }
     
-    const posts = await Post.find({status: "under_review"});
+    const posts = await Post.find({status: "review"}).populate("author", "name");
     res.json(posts);
 };
 
@@ -172,9 +237,6 @@ exports.removePost = async(req,res) => {
 
 //comments
 
-const Comment = require("../models/Comment");
-const User = require("../models/User");
-
 exports.addComment = async (req, res) => {
     try{
         const {text, parentCommentId} = req.body;
@@ -194,7 +256,7 @@ exports.addComment = async (req, res) => {
         let parent = null;
         
         if (parentCommentId) {
-            const parent = await Comment.findById(parentCommentId);
+            parent = await Comment.findById(parentCommentId);
 
             if (!parent) {
                 return res.status(404).json({ message: "Parent comment not found" });
@@ -251,5 +313,32 @@ exports.getComments = async (req, res) => {
     }
     catch(err){
         res.status(500).json({error: err.message});
+    }
+};
+
+exports.getProfile = async (req, res) => {
+    try {
+        const user = await User.findById(req.params.userId).select("-password");
+
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        const postCount = await Post.countDocuments({
+            author: user._id,
+            status: { $ne: "removed" }
+        });
+
+        const commentCount = await Comment.countDocuments({ userId: user._id });
+
+        res.json({
+            ...user.toObject(),
+            stats: {
+                postCount,
+                commentCount
+            }
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
 };
