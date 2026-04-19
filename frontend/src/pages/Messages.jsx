@@ -11,6 +11,7 @@ const formatMessageTime = (value) =>
   });
 
 function Messages({ auth, onLogout, onNavigate, userId }) {
+  const [conversations, setConversations] = useState([]);
   const [threadUser, setThreadUser] = useState(null);
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
@@ -19,8 +20,24 @@ function Messages({ auth, onLogout, onNavigate, userId }) {
   const [error, setError] = useState("");
   const bottomRef = useRef(null);
 
+  const fetchConversations = async () => {
+    try {
+      const res = await API.get("/messages");
+      setConversations(res.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   useEffect(() => {
     const fetchConversation = async () => {
+      if (!userId) {
+        setThreadUser(null);
+        setMessages([]);
+        setLoading(false);
+        return;
+      }
+
       try {
         setLoading(true);
         setError("");
@@ -34,6 +51,7 @@ function Messages({ auth, onLogout, onNavigate, userId }) {
       }
     };
 
+    fetchConversations();
     fetchConversation();
   }, [userId]);
 
@@ -53,6 +71,7 @@ function Messages({ auth, onLogout, onNavigate, userId }) {
       const res = await API.post(`/messages/${userId}`, { text: cleanText });
       setMessages((current) => [...current, res.data]);
       setText("");
+      fetchConversations();
     } catch (err) {
       setError(err.response?.data?.message || "Could not send message");
     } finally {
@@ -70,13 +89,22 @@ function Messages({ auth, onLogout, onNavigate, userId }) {
 
   return (
     <main className="page-shell message-page">
-      <section className="message-header">
-        <button className="ghost-button compact" type="button" onClick={() => onNavigate(`/profile/${userId}`)}>
-          Back to profile
-        </button>
+      <section className="message-header improved">
+        <div className="message-person">
+          <span className="profile-badge message-avatar">
+            {threadUser?.name?.slice(0, 1)?.toUpperCase() || "M"}
+          </span>
+          <div>
+            <span className="eyebrow">Messages</span>
+            <h1>{threadUser?.name || "Inbox"}</h1>
+          </div>
+        </div>
         <div>
-          <span className="eyebrow">Direct message</span>
-          <h1>{threadUser?.name || "Conversation"}</h1>
+          {threadUser ? (
+            <button className="ghost-button compact" type="button" onClick={() => onNavigate(`/profile/${userId}`)}>
+              Profile
+            </button>
+          ) : null}
         </div>
         <div className="message-nav-actions">
           <button className="ghost-button compact" type="button" onClick={() => onNavigate("/")}>
@@ -90,36 +118,76 @@ function Messages({ auth, onLogout, onNavigate, userId }) {
 
       {error ? <div className="form-error">{error}</div> : null}
 
-      <section className="message-thread" aria-label={`Messages with ${threadUser?.name || "user"}`}>
-        {messages.length ? (
-          messages.map((message) => {
-            const mine = message.sender?._id === auth.user?._id || message.sender === auth.user?._id;
+      <section className="message-layout">
+        <aside className="conversation-list" aria-label="Message conversations">
+          {conversations.length ? (
+            conversations.map((conversation) => (
+              <button
+                className={conversation.user?._id === userId ? "active" : ""}
+                type="button"
+                key={conversation.user?._id}
+                onClick={() => onNavigate(`/messages/${conversation.user._id}`)}
+              >
+                <span className="avatar-badge small">
+                  {conversation.user?.name?.slice(0, 1)?.toUpperCase() || "U"}
+                </span>
+                <span>
+                  <strong>{conversation.user?.name || "User"}</strong>
+                  <small>{conversation.lastMessage?.text || "Open conversation"}</small>
+                </span>
+              </button>
+            ))
+          ) : (
+            <div className="empty-subtle">No conversations yet.</div>
+          )}
+        </aside>
 
-            return (
-              <article className={`message-bubble ${mine ? "mine" : ""}`} key={message._id}>
-                <p>{message.text}</p>
-                <span>{mine ? "You" : message.sender?.name || threadUser?.name} - {formatMessageTime(message.createdAt)}</span>
-              </article>
-            );
-          })
-        ) : (
-          <div className="empty-card">No messages yet. Start the conversation.</div>
-        )}
-        <div ref={bottomRef} />
+        <div className="message-console">
+          {threadUser ? (
+            <>
+              <div className="message-thread" aria-label={`Messages with ${threadUser?.name || "user"}`}>
+                {messages.length ? (
+                  messages.map((message) => {
+                    const mine = message.sender?._id === auth.user?._id || message.sender === auth.user?._id;
+
+                    return (
+                      <article className={`message-bubble ${mine ? "mine" : ""}`} key={message._id}>
+                        <p>{message.text}</p>
+                        <span>{mine ? "You" : message.sender?.name || threadUser?.name} - {formatMessageTime(message.createdAt)}</span>
+                      </article>
+                    );
+                  })
+                ) : (
+                  <div className="empty-card">No messages yet. Start the conversation.</div>
+                )}
+                <div ref={bottomRef} />
+              </div>
+
+              <form className="message-composer improved" onSubmit={sendMessage}>
+                <textarea
+                  rows={2}
+                  value={text}
+                  onChange={(event) => setText(event.target.value)}
+                  placeholder={`Message ${threadUser?.name || "this user"}`}
+                  maxLength={1000}
+                />
+                <button className="primary-button" type="submit" disabled={sending || !text.trim()}>
+                  {sending ? "Sending..." : "Send"}
+                </button>
+              </form>
+            </>
+          ) : (
+            <div className="message-empty-state">
+              <span className="eyebrow">Inbox</span>
+              <h2>Select a conversation.</h2>
+              <p>Use profile pages or user search to start a new direct message.</p>
+              <button className="primary-button compact" type="button" onClick={() => onNavigate("/search")}>
+                Search users
+              </button>
+            </div>
+          )}
+        </div>
       </section>
-
-      <form className="message-composer" onSubmit={sendMessage}>
-        <textarea
-          rows={3}
-          value={text}
-          onChange={(event) => setText(event.target.value)}
-          placeholder={`Message ${threadUser?.name || "this user"}`}
-          maxLength={1000}
-        />
-        <button className="primary-button" type="submit" disabled={sending || !text.trim()}>
-          {sending ? "Sending..." : "Send message"}
-        </button>
-      </form>
     </main>
   );
 }

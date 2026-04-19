@@ -113,3 +113,24 @@ exports.updateCurrentUser = async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 };
+
+exports.searchUsers = async (req, res) => {
+    try {
+        const query = typeof req.query.search === "string" ? req.query.search.trim() : "";
+
+        if (!query) {
+            return res.json([]);
+        }
+
+        const users = await User.find({
+            name: { $regex: query, $options: "i" }
+        })
+            .select("name bio reputation createdAt")
+            .limit(12)
+            .sort({ reputation: -1, createdAt: -1 });
+
+        res.json(users);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};

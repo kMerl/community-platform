@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import API from "../api";
 import PostCard from "../components/PostCard";
@@ -77,7 +77,7 @@ function Profile({ auth, onLogout, onNavigate, userId, onUserUpdated }) {
 
   const isOwnProfile = auth.isAuthenticated && auth.user?._id === userId;
 
-  const fetchProfileData = async () => {
+  const fetchProfileData = useCallback(async () => {
     try {
       setLoading(true);
       const [profileRes, postsRes] = await Promise.all([
@@ -92,11 +92,11 @@ function Profile({ auth, onLogout, onNavigate, userId, onUserUpdated }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId]);
 
   useEffect(() => {
     fetchProfileData();
-  }, [userId]);
+  }, [userId, fetchProfileData]);
 
   if (loading) {
     return (
@@ -124,7 +124,7 @@ function Profile({ auth, onLogout, onNavigate, userId, onUserUpdated }) {
           <span className="eyebrow">User profile</span>
           <h1>{profile.name}</h1>
           {profile.bio ? <p>{profile.bio}</p> : null}
-          <p>{profile.email}</p>
+          {isOwnProfile && profile.email ? <p>{profile.email}</p> : null}
         </div>
         <div className="profile-actions">
           <button className="ghost-button compact" onClick={() => onNavigate("/")}>

@@ -1,4 +1,5 @@
 const Message = require("../models/Message");
+const Notification = require("../models/Notification");
 const User = require("../models/User");
 
 const getConversationFilter = (currentUserId, otherUserId) => ({
@@ -8,9 +9,47 @@ const getConversationFilter = (currentUserId, otherUserId) => ({
     ]
 });
 
+exports.getConversations = async (req, res) => {
+    try {
+        const messages = await Message.find({
+            $or: [
+                { sender: req.user.id },
+                { recipient: req.user.id }
+            ]
+        })
+            .populate("sender", "name")
+            .populate("recipient", "name")
+            .sort({ createdAt: -1 });
+
+        const conversations = [];
+        const seen = new Set();
+
+        messages.forEach((message) => {
+            const senderId = message.sender?._id?.toString();
+            const recipientId = message.recipient?._id?.toString();
+            const otherUser = senderId === req.user.id ? message.recipient : message.sender;
+            const otherUserId = otherUser?._id?.toString();
+
+            if (!otherUserId || seen.has(otherUserId)) return;
+
+            seen.add(otherUserId);
+            conversations.push({
+                user: otherUser,
+                lastMessage: message,
+                updatedAt: message.createdAt,
+                mine: senderId === req.user.id || recipientId !== req.user.id
+            });
+        });
+
+        res.json(conversations);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
 exports.getConversation = async (req, res) => {
     try {
-        const otherUser = await User.findById(req.params.userId).select("name email bio reputation createdAt");
+        const otherUser = await User.findById(req.params.userId).select("name bio reputation createdAt");
 
         if (!otherUser) {
             return res.status(404).json({ message: "User not found" });
@@ -56,6 +95,15 @@ exports.sendMessage = async (req, res) => {
             { path: "sender", select: "name" },
             { path: "recipient", select: "name" }
         ]);
+
+        await Notification.create({
+            recipient: req.params.userId,
+            actor: req.user.id,
+            type: "message",
+            message: message._id,
+            text: `${populated.sender.name} sent you a message`,
+            link: `/messages/${req.user.id}`
+        });
 
         res.status(201).json(populated);
     } catch (err) {

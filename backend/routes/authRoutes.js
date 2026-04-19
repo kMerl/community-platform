@@ -6,11 +6,13 @@ const {
     register,
     login,
     getCurrentUser,
-    updateCurrentUser
+    updateCurrentUser,
+    searchUsers
 } = require("../controllers/authController");
 
 router.post("/register", register);
 router.post("/login", login);
+router.get("/users", searchUsers);
 router.get("/me", auth, getCurrentUser);
 router.patch("/me", auth, updateCurrentUser);
 

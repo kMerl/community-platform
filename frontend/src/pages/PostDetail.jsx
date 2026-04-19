@@ -1,14 +1,14 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import API from "../api";
 import PostCard from "../components/PostCard";
 
-function PostDetail({ auth, onLogout, onNavigate, postId }) {
+function PostDetail({ auth, onLogout, onNavigate, postId, highlightCommentId }) {
   const [post, setPost] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const fetchPost = async () => {
+  const fetchPost = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
@@ -19,11 +19,11 @@ function PostDetail({ auth, onLogout, onNavigate, postId }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [postId]);
 
   useEffect(() => {
     fetchPost();
-  }, [postId]);
+  }, [postId, fetchPost]);
 
   return (
     <main className="page-shell">
@@ -65,6 +65,7 @@ function PostDetail({ auth, onLogout, onNavigate, postId }) {
             onRefresh={fetchPost}
             forceExpandedComments
             detailMode
+            highlightCommentId={highlightCommentId}
             onRequireLogin={() => onNavigate("/login")}
           />
         </div>

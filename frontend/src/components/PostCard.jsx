@@ -19,6 +19,7 @@ function PostCard({
   onRequireLogin,
   forceExpandedComments = false,
   detailMode = false,
+  highlightCommentId = "",
 }) {
   const [showComments, setShowComments] = useState(forceExpandedComments);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -68,13 +69,14 @@ function PostCard({
   };
 
   const openPost = () => onNavigate(`/post/${post._id}`);
+  const authorInitial = post.author?.name?.slice(0, 1)?.toUpperCase() || "U";
 
   return (
     <article className={`post-card ${detailMode ? "post-card-detail" : ""}`}>
       <div className="post-topline">
         <button className="author-chip" type="button" onClick={() => onNavigate(`/profile/${post.author?._id || post.author}`)}>
           <span className="avatar-badge small">
-            {post.author?.name?.slice(0, 1)?.toUpperCase() || "U"}
+            {authorInitial}
           </span>
           <span>
             <strong>{post.author?.name || "Unknown author"}</strong>
@@ -91,7 +93,21 @@ function PostCard({
               setMenuOpen((prev) => !prev);
             }}
           >
-            ...
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="12" r="1" />
+              <circle cx="19" cy="12" r="1" />
+              <circle cx="5" cy="12" r="1" />
+            </svg>
           </button>
           {menuOpen ? (
             <div className="menu-panel">
@@ -114,36 +130,46 @@ function PostCard({
             type="button"
             className={`vote-button ${post.viewerVote === 1 ? "active-up" : ""}`}
             onClick={() => vote(1)}
+            aria-label="Upvote"
           >
-            Upvote
+            <span aria-hidden="true">↑</span>
           </button>
           <span>{post.votes ?? 0}</span>
           <button
             type="button"
             className={`vote-button ${post.viewerVote === -1 ? "active-down" : ""}`}
             onClick={() => vote(-1)}
+            aria-label="Downvote"
           >
-            Downvote
+            <span aria-hidden="true">↓</span>
           </button>
         </div>
 
-        <button
-          className="text-button"
-          type="button"
-          onClick={() => setShowComments((prev) => !prev)}
-        >
-          {showComments ? "Hide comments" : `Comments (${post.commentCount || 0})`}
-        </button>
-
-        {!detailMode ? (
-          <button className="ghost-button compact" type="button" onClick={openPost}>
-            Open post
+        <div className="post-action-links">
+          <button
+            className="text-button"
+            type="button"
+            onClick={() => setShowComments((prev) => !prev)}
+          >
+            {showComments ? "Hide comments" : `${post.commentCount || 0} comments`}
           </button>
-        ) : null}
+
+          {!detailMode ? (
+            <button className="ghost-button compact" type="button" onClick={openPost}>
+              Open
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {showComments ? (
-        <Comments auth={auth} postId={post._id} alwaysOpen />
+        <Comments
+          auth={auth}
+          postId={post._id}
+          alwaysOpen
+          highlightCommentId={highlightCommentId}
+          onNavigate={onNavigate}
+        />
       ) : null}
     </article>
   );

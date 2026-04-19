@@ -28,12 +28,14 @@ function CreatePost({ currentUser, onCreated }) {
   return (
     <form className="composer-card" onSubmit={handleSubmit}>
       <div className="composer-head">
-        <div className="avatar-badge">
-          {currentUser?.name?.slice(0, 1)?.toUpperCase() || "Y"}
-        </div>
-        <div>
-          <span className="eyebrow">Create post</span>
-          <h3>Share something worth discussing</h3>
+        <div className="composer-author">
+          <div className="avatar-badge">
+            {currentUser?.name?.slice(0, 1)?.toUpperCase() || "Y"}
+          </div>
+          <div>
+            <span className="eyebrow">Create post</span>
+            <h3>Share something worth discussing</h3>
+          </div>
         </div>
       </div>
 
@@ -51,7 +53,6 @@ function CreatePost({ currentUser, onCreated }) {
       />
 
       <div className="composer-actions">
-        <span>Posts appear in the feed immediately.</span>
         <button className="primary-button compact" type="submit" disabled={submitting}>
           {submitting ? "Posting..." : "Publish"}
         </button>

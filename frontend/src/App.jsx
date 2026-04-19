@@ -1,20 +1,25 @@
 import { useEffect, useMemo, useState } from "react";
 
 import API from "./api";
+import AppNav from "./components/AppNav";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Messages from "./pages/Messages";
+import ModeratorDashboard from "./pages/ModeratorDashboard";
+import Notifications from "./pages/Notifications";
 import PostDetail from "./pages/PostDetail";
 import Profile from "./pages/Profile";
 import Register from "./pages/Register";
+import Search from "./pages/Search";
 
 const getRouteFromHash = () => {
   const hash = window.location.hash.replace(/^#/, "") || "/";
-  const [path] = hash.split("?");
+  const [path, queryString = ""] = hash.split("?");
   const cleanPath = path.startsWith("/") ? path : `/${path}`;
+  const query = new URLSearchParams(queryString);
 
   if (cleanPath.startsWith("/post/")) {
-    return { name: "post", id: cleanPath.split("/")[2] };
+    return { name: "post", id: cleanPath.split("/")[2], commentId: query.get("comment") };
   }
 
   if (cleanPath.startsWith("/profile/")) {
@@ -25,6 +30,10 @@ const getRouteFromHash = () => {
     return { name: "messages", id: cleanPath.split("/")[2] };
   }
 
+  if (cleanPath === "/moderation") return { name: "moderation" };
+  if (cleanPath === "/notifications") return { name: "notifications" };
+  if (cleanPath === "/messages") return { name: "messages" };
+  if (cleanPath === "/search") return { name: "search" };
   if (cleanPath === "/login") return { name: "login" };
   if (cleanPath === "/register") return { name: "register" };
 
@@ -134,6 +143,21 @@ function App() {
 
   const openLoginPrompt = () => setLoginPromptOpen(true);
   const closeLoginPrompt = () => setLoginPromptOpen(false);
+  const focusSearch = () => {
+    navigate("/search");
+  };
+
+  const withNav = (content) => (
+    <>
+      <AppNav
+        auth={authValue}
+        routeName={route.name}
+        onNavigate={navigate}
+        onSearchFocus={focusSearch}
+      />
+      {content}
+    </>
+  );
 
   if (!authReady) {
     return (
@@ -165,52 +189,94 @@ function App() {
   }
 
   if (route.name === "post" && route.id) {
-    return (
+    return withNav(
       <PostDetail
         auth={authValue}
         onLogout={handleLogout}
         onNavigate={navigate}
         postId={route.id}
-      />
+        highlightCommentId={route.commentId}
+      />,
     );
   }
 
   if (route.name === "profile" && route.id) {
-    return (
+    return withNav(
       <Profile
         auth={authValue}
         onLogout={handleLogout}
         onNavigate={navigate}
         userId={route.id}
         onUserUpdated={handleUserUpdated}
-      />
+      />,
     );
   }
 
-  if (route.name === "messages" && route.id) {
+  if (route.name === "messages") {
     if (!authValue.isAuthenticated) {
       navigate("/login");
       return null;
     }
 
-    return (
+    return withNav(
       <Messages
         auth={authValue}
         onLogout={handleLogout}
         onNavigate={navigate}
-        userId={route.id}
-      />
+        userId={route.id || ""}
+      />,
+    );
+  }
+
+  if (route.name === "moderation") {
+    if (!authValue.isAuthenticated) {
+      navigate("/login");
+      return null;
+    }
+
+    return withNav(
+      <ModeratorDashboard
+        auth={authValue}
+        onLogout={handleLogout}
+        onNavigate={navigate}
+      />,
+    );
+  }
+
+  if (route.name === "notifications") {
+    if (!authValue.isAuthenticated) {
+      navigate("/login");
+      return null;
+    }
+
+    return withNav(
+      <Notifications
+        auth={authValue}
+        onNavigate={navigate}
+      />,
+    );
+  }
+
+  if (route.name === "search") {
+    return withNav(
+      <Search
+        auth={authValue}
+        onNavigate={navigate}
+        onRequireLogin={openLoginPrompt}
+      />,
     );
   }
 
   return (
     <>
-      <Home
-        auth={authValue}
-        onLogout={handleLogout}
-        onNavigate={navigate}
-        onRequireLogin={openLoginPrompt}
-      />
+      {withNav(
+        <Home
+          auth={authValue}
+          onLogout={handleLogout}
+          onNavigate={navigate}
+          onRequireLogin={openLoginPrompt}
+        />,
+      )}
       <LoginPromptModal
         open={loginPromptOpen}
         onClose={closeLoginPrompt}

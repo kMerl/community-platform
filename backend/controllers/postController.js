@@ -2,6 +2,7 @@
 const Post = require("../models/Post"); 
 //const cloudinary = require("../config/cloudinary");
 const Comment = require("../models/Comment");
+const Notification = require("../models/Notification");
 const User = require("../models/User");
 
 const buildPostQuery = (extra = {}) =>
@@ -194,6 +195,18 @@ exports.getFlaggedPosts = async (req, res) => {
     res.json(posts);
 };
 
+exports.getRemovedPosts = async (req, res) => {
+    if (req.user.role !== "moderator") {
+        return res.status(403).json({ msg: "Access denied" });
+    }
+
+    const posts = await Post.find({ status: "removed" })
+        .populate("author", "name")
+        .sort({ updatedAt: -1 });
+
+    res.json(posts);
+};
+
 //moderator action on flagged post
 exports.approvePost = async (req, res) => {
 
@@ -274,6 +287,35 @@ exports.addComment = async (req, res) => {
             parent.replies.push(comment._id);
             await parent.save();
         }
+
+        const actor = await User.findById(req.user.id).select("name");
+        const actorName = actor?.name || "Someone";
+        const commentLink = `/post/${post._id}?comment=${comment._id}`;
+
+        if (parent) {
+            if (parent.userId.toString() !== req.user.id) {
+                await Notification.create({
+                    recipient: parent.userId,
+                    actor: req.user.id,
+                    type: "reply",
+                    post: post._id,
+                    comment: comment._id,
+                    text: `${actorName} replied to your comment`,
+                    link: commentLink
+                });
+            }
+        } else if (post.author.toString() !== req.user.id) {
+            await Notification.create({
+                recipient: post.author,
+                actor: req.user.id,
+                type: "comment",
+                post: post._id,
+                comment: comment._id,
+                text: `${actorName} commented on your post`,
+                link: commentLink
+            });
+        }
+
         res.status(201).json(comment);
     }
     catch (err){
@@ -331,8 +373,14 @@ exports.getProfile = async (req, res) => {
 
         const commentCount = await Comment.countDocuments({ userId: user._id });
 
+        const profile = user.toObject();
+
+        if (req.user?.id !== user._id.toString()) {
+            delete profile.email;
+        }
+
         res.json({
-            ...user.toObject(),
+            ...profile,
             stats: {
                 postCount,
                 commentCount

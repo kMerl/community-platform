@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import API from "../api";
 import CreatePost from "../components/CreatePost";
@@ -7,6 +7,9 @@ import PostCard from "../components/PostCard";
 function Home({ auth, onLogout, onNavigate, onRequireLogin }) {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortMode, setSortMode] = useState("latest");
+  const [sortOpen, setSortOpen] = useState(false);
   const feedRef = useRef(null);
 
   const fetchPosts = async () => {
@@ -29,12 +32,41 @@ function Home({ auth, onLogout, onNavigate, onRequireLogin }) {
     feedRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
+  const visiblePosts = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    const filtered = query
+      ? posts.filter((post) => {
+          const title = post.title?.toLowerCase() || "";
+          const content = post.content?.toLowerCase() || "";
+          return title.includes(query) || content.includes(query);
+        })
+      : posts;
+
+    return [...filtered].sort((a, b) => {
+      if (sortMode === "votes") {
+        return (b.votes || 0) - (a.votes || 0);
+      }
+
+      if (sortMode === "comments") {
+        return (b.commentCount || 0) - (a.commentCount || 0);
+      }
+
+      return new Date(b.createdAt) - new Date(a.createdAt);
+    });
+  }, [posts, searchTerm, sortMode]);
+
+  const sortLabel = {
+    latest: "Latest",
+    votes: "Top voted",
+    comments: "Most discussed",
+  }[sortMode];
+
   return (
     <main className="home-shell">
       <section className="home-hero">
         <nav className="home-nav" aria-label="Home navigation">
           <button className="brand-button" type="button" onClick={() => onNavigate("/")}>
-            Community
+            ThreadLine
           </button>
           <div className="home-nav-actions">
             {auth.isAuthenticated ? (
@@ -106,7 +138,7 @@ function Home({ auth, onLogout, onNavigate, onRequireLogin }) {
         </div>
       </section>
 
-      <section className="feed-section" ref={feedRef}>
+      <section className="feed-section with-rail" ref={feedRef}>
         <div className="content-main">
           {auth.isAuthenticated && (
             <CreatePost
@@ -120,13 +152,83 @@ function Home({ auth, onLogout, onNavigate, onRequireLogin }) {
               <span className="eyebrow">Feed</span>
               <h2>{auth.isAuthenticated ? "Your home timeline" : "Public preview feed"}</h2>
             </div>
+            <div className="feed-tools">
+              <label className="search-field" htmlFor="feed-search">
+                <svg
+                  width="17"
+                  height="17"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="m20 20-3.5-3.5" />
+                </svg>
+                <input
+                  id="feed-search"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  placeholder="Search posts"
+                />
+              </label>
+
+              <div className="sort-menu-wrap">
+                <button
+                  className="sort-trigger"
+                  type="button"
+                  aria-label={`Sort feed, currently ${sortLabel}`}
+                  aria-expanded={sortOpen}
+                  onClick={() => setSortOpen((current) => !current)}
+                >
+                  <span>{sortLabel}</span>
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="m6 9 6 6 6-6" />
+                  </svg>
+                </button>
+                {sortOpen ? (
+                  <div className="sort-menu">
+                    {[
+                      ["latest", "Latest"],
+                      ["votes", "Top voted"],
+                      ["comments", "Most discussed"],
+                    ].map(([value, label]) => (
+                      <button
+                        className={sortMode === value ? "active" : ""}
+                        type="button"
+                        key={value}
+                        onClick={() => {
+                          setSortMode(value);
+                          setSortOpen(false);
+                        }}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            </div>
           </div>
 
           {loading ? (
             <div className="empty-card">Loading the latest conversations...</div>
-          ) : posts.length ? (
+          ) : visiblePosts.length ? (
             <div className="feed-list">
-              {posts.map((post) => (
+              {visiblePosts.map((post) => (
                 <PostCard
                   key={post._id}
                   auth={auth}
@@ -137,6 +239,8 @@ function Home({ auth, onLogout, onNavigate, onRequireLogin }) {
                 />
               ))}
             </div>
+          ) : posts.length ? (
+            <div className="empty-card">No posts matched your search.</div>
           ) : (
             <div className="empty-card">The feed is ready for its first post.</div>
           )}

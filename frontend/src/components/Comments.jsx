@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import API from "../api";
 
@@ -10,10 +10,11 @@ const formatTime = (value) =>
     minute: "2-digit",
   });
 
-function CommentNode({ auth, comment, postId, onReply }) {
+function ReplyNode({ auth, comment, postId, onReply, highlightCommentId, onNavigate }) {
   const [replying, setReplying] = useState(false);
   const [text, setText] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const isHighlighted = highlightCommentId === comment._id;
 
   const submitReply = async () => {
     if (!auth.isAuthenticated || !text.trim()) return;
@@ -35,19 +36,30 @@ function CommentNode({ auth, comment, postId, onReply }) {
   };
 
   return (
-    <div className={`comment-node ${comment.parentCommentId ? "comment-reply" : ""}`}>
-      <div className="comment-card">
-        <div className="comment-meta">
-          <strong>{comment.userId?.name || "Community member"}</strong>
-          <span>{formatTime(comment.createdAt)}</span>
-        </div>
-        <p>{comment.text}</p>
-        {auth.isAuthenticated ? (
-          <button className="text-button" type="button" onClick={() => setReplying((prev) => !prev)}>
-            {replying ? "Cancel" : "Reply"}
+    <div className={`reply-row ${isHighlighted ? "highlighted" : ""}`} id={`comment-${comment._id}`}>
+      <div className="comment-meta">
+        <div className="comment-author">
+          <button
+            className="comment-author-button"
+            type="button"
+            onClick={() => comment.userId?._id && onNavigate?.(`/profile/${comment.userId._id}`)}
+          >
+            <span className="avatar-badge small">
+              {comment.userId?.name?.slice(0, 1)?.toUpperCase() || "C"}
+            </span>
+            <span>
+              <strong>{comment.userId?.name || "Community member"}</strong>
+              <small>{formatTime(comment.createdAt)}</small>
+            </span>
           </button>
-        ) : null}
+        </div>
       </div>
+      <p>{comment.text}</p>
+      {auth.isAuthenticated ? (
+        <button className="text-button" type="button" onClick={() => setReplying((prev) => !prev)}>
+          {replying ? "Cancel" : "Reply"}
+        </button>
+      ) : null}
 
       {replying ? (
         <div className="reply-box">
@@ -66,12 +78,14 @@ function CommentNode({ auth, comment, postId, onReply }) {
       {comment.replies?.length ? (
         <div className="reply-stack">
           {comment.replies.map((reply) => (
-            <CommentNode
+            <ReplyNode
               key={reply._id}
               auth={auth}
               comment={reply}
               postId={postId}
               onReply={onReply}
+              highlightCommentId={highlightCommentId}
+              onNavigate={onNavigate}
             />
           ))}
         </div>
@@ -80,25 +94,120 @@ function CommentNode({ auth, comment, postId, onReply }) {
   );
 }
 
-function Comments({ auth, postId, alwaysOpen = false }) {
+function CommentThread({ auth, comment, postId, onReply, highlightCommentId, onNavigate }) {
+  const [replying, setReplying] = useState(false);
+  const [text, setText] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const isHighlighted = highlightCommentId === comment._id;
+
+  const submitReply = async () => {
+    if (!auth.isAuthenticated || !text.trim()) return;
+
+    try {
+      setSubmitting(true);
+      await API.post(`/posts/${postId}/comment`, {
+        text,
+        parentCommentId: comment._id,
+      });
+      setText("");
+      setReplying(false);
+      onReply();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <article className={`comment-thread-card ${isHighlighted ? "highlighted" : ""}`} id={`comment-${comment._id}`}>
+      <div className="comment-meta">
+        <div className="comment-author">
+          <button
+            className="comment-author-button"
+            type="button"
+            onClick={() => comment.userId?._id && onNavigate?.(`/profile/${comment.userId._id}`)}
+          >
+            <span className="avatar-badge small">
+              {comment.userId?.name?.slice(0, 1)?.toUpperCase() || "C"}
+            </span>
+            <span>
+              <strong>{comment.userId?.name || "Community member"}</strong>
+              <small>{formatTime(comment.createdAt)}</small>
+            </span>
+          </button>
+        </div>
+      </div>
+      <p>{comment.text}</p>
+      {auth.isAuthenticated ? (
+        <button className="text-button" type="button" onClick={() => setReplying((prev) => !prev)}>
+          {replying ? "Cancel" : "Reply"}
+        </button>
+      ) : null}
+
+      {replying ? (
+        <div className="reply-box">
+          <textarea
+            rows={2}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Write a reply..."
+          />
+          <button className="ghost-button compact" type="button" onClick={submitReply} disabled={submitting}>
+            {submitting ? "Sending..." : "Send reply"}
+          </button>
+        </div>
+      ) : null}
+
+      {comment.replies?.length ? (
+        <div className="thread-replies">
+          {comment.replies.map((reply) => (
+            <ReplyNode
+              key={reply._id}
+              auth={auth}
+              comment={reply}
+              postId={postId}
+              onReply={onReply}
+              highlightCommentId={highlightCommentId}
+              onNavigate={onNavigate}
+            />
+          ))}
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
+function Comments({ auth, postId, alwaysOpen = false, highlightCommentId = "", onNavigate }) {
   const [comments, setComments] = useState([]);
   const [text, setText] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const fetchComments = async () => {
+  const fetchComments = useCallback(async () => {
     try {
       const res = await API.get(`/posts/${postId}/comments`);
       setComments(res.data);
     } catch (err) {
       console.error(err);
     }
-  };
+  }, [postId]);
 
   useEffect(() => {
     if (alwaysOpen) {
       fetchComments();
     }
-  }, [alwaysOpen, postId]);
+  }, [alwaysOpen, postId, fetchComments]);
+
+  useEffect(() => {
+    if (!highlightCommentId || !comments.length) return;
+
+    window.setTimeout(() => {
+      document.getElementById(`comment-${highlightCommentId}`)?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }, 120);
+  }, [comments, highlightCommentId]);
 
   const submitComment = async () => {
     if (!auth.isAuthenticated || !text.trim()) return;
@@ -120,7 +229,7 @@ function Comments({ auth, postId, alwaysOpen = false }) {
       <div className="comments-head">
         <div>
           <span className="eyebrow">Discussion</span>
-          <h3>{comments.length ? `${comments.length} top-level comments` : "Start the conversation"}</h3>
+          <h3>{comments.length ? `${comments.length} comment threads` : "Start the conversation"}</h3>
         </div>
       </div>
 
@@ -143,12 +252,14 @@ function Comments({ auth, postId, alwaysOpen = false }) {
       <div className="comment-list">
         {comments.length ? (
           comments.map((comment) => (
-            <CommentNode
+            <CommentThread
               key={comment._id}
               auth={auth}
               comment={comment}
               postId={postId}
               onReply={fetchComments}
+              highlightCommentId={highlightCommentId}
+              onNavigate={onNavigate}
             />
           ))
         ) : (

@@ -12,7 +12,8 @@ const {
     getFlaggedPosts,
     approvePost,
     removePost,
-    getProfile
+    getProfile,
+    getRemovedPosts
 } = require("../controllers/postController");
 
 const {flagPost} = require("../controllers/postController");
@@ -35,7 +36,7 @@ router.post("/", auth, createPost);
 
 //get all posts
 router.get("/", optionalAuth, getPosts);
-router.get("/profile/:userId", getProfile);
+router.get("/profile/:userId", optionalAuth, getProfile);
 
 //vote on post (protected route)
 router.post("/:id/vote", auth, voteLimiter, vote);
@@ -49,6 +50,7 @@ router.get("/:id/comments", getComments);
 
 //moderator
 router.get("/flagged", auth, getFlaggedPosts);
+router.get("/removed", auth, getRemovedPosts);
 router.post("/:id/approve", auth, approvePost);
 router.post("/:id/remove", auth, removePost);
 router.get("/:id", optionalAuth, getPostById);
