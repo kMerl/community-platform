@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import API from "./api";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
+import Messages from "./pages/Messages";
 import PostDetail from "./pages/PostDetail";
 import Profile from "./pages/Profile";
 import Register from "./pages/Register";
@@ -18,6 +19,10 @@ const getRouteFromHash = () => {
 
   if (cleanPath.startsWith("/profile/")) {
     return { name: "profile", id: cleanPath.split("/")[2] };
+  }
+
+  if (cleanPath.startsWith("/messages/")) {
+    return { name: "messages", id: cleanPath.split("/")[2] };
   }
 
   if (cleanPath === "/login") return { name: "login" };
@@ -88,7 +93,7 @@ function App() {
       try {
         const res = await API.get("/auth/me");
         setUser(res.data);
-      } catch (err) {
+      } catch {
         localStorage.removeItem("token");
         setToken(null);
         setUser(null);
@@ -178,6 +183,22 @@ function App() {
         onNavigate={navigate}
         userId={route.id}
         onUserUpdated={handleUserUpdated}
+      />
+    );
+  }
+
+  if (route.name === "messages" && route.id) {
+    if (!authValue.isAuthenticated) {
+      navigate("/login");
+      return null;
+    }
+
+    return (
+      <Messages
+        auth={authValue}
+        onLogout={handleLogout}
+        onNavigate={navigate}
+        userId={route.id}
       />
     );
   }

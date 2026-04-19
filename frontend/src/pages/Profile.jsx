@@ -135,6 +135,14 @@ function Profile({ auth, onLogout, onNavigate, userId, onUserUpdated }) {
               Edit profile
             </button>
           ) : null}
+          {!isOwnProfile ? (
+            <button
+              className="primary-button compact"
+              onClick={() => onNavigate(auth.isAuthenticated ? `/messages/${profile._id}` : "/login")}
+            >
+              Message
+            </button>
+          ) : null}
           {!isOwnProfile && auth.isAuthenticated ? (
             <button className="ghost-button compact" onClick={() => onNavigate(`/profile/${auth.user._id}`)}>
               My profile

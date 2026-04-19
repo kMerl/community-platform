@@ -1,9 +1,8 @@
 import { useState } from "react";
 
 import API from "../api";
-import Home from "./Home";
 
-function Register({ auth, onAuthSuccess, onNavigate }) {
+function Register({ onAuthSuccess, onNavigate }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -26,8 +25,11 @@ function Register({ auth, onAuthSuccess, onNavigate }) {
   };
 
   return (
-    <div className="stacked-page">
-      <section className="auth-panel register-tone">
+    <main className="auth-page register-tone">
+      <section className="auth-panel">
+        <button className="text-button auth-home-link" type="button" onClick={() => onNavigate("/")}>
+          Back home
+        </button>
         <div className="auth-card">
           <span className="eyebrow">Join the space</span>
           <h1>Create an account and start posting right away.</h1>
@@ -83,9 +85,7 @@ function Register({ auth, onAuthSuccess, onNavigate }) {
           </p>
         </div>
       </section>
-
-      <Home auth={auth} onLogout={() => {}} onNavigate={onNavigate} onRequireLogin={() => {}} />
-    </div>
+    </main>
   );
 }
 

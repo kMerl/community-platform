@@ -1,9 +1,8 @@
 import { useState } from "react";
 
 import API from "../api";
-import Home from "./Home";
 
-function Login({ auth, onAuthSuccess, onNavigate }) {
+function Login({ onAuthSuccess, onNavigate }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -26,8 +25,11 @@ function Login({ auth, onAuthSuccess, onNavigate }) {
   };
 
   return (
-    <div className="stacked-page">
+    <main className="auth-page login-tone">
       <section className="auth-panel">
+        <button className="text-button auth-home-link" type="button" onClick={() => onNavigate("/")}>
+          Back home
+        </button>
         <div className="auth-card">
           <span className="eyebrow">Welcome back</span>
           <h1>Login to keep the discussion going.</h1>
@@ -82,9 +84,7 @@ function Login({ auth, onAuthSuccess, onNavigate }) {
           </p>
         </div>
       </section>
-
-      <Home auth={auth} onLogout={() => {}} onNavigate={onNavigate} onRequireLogin={() => {}} />
-    </div>
+    </main>
   );
 }
 
