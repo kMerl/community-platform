@@ -96,8 +96,7 @@ function Home({ auth, onLogout, onNavigate, onRequireLogin }) {
             <span className="eyebrow">Community discussion</span>
             <h1>A lively place for posts, replies, votes, and real conversation.</h1>
             <p>
-              Browse public discussions, meet the people behind each post, and join in when
-              you are ready. The feed is waiting just below the welcome screen.
+              Browse public discussions, meet the people behind each post, and join in when you are ready. The feed is waiting just below the welcome screen.
             </p>
             <div className="hero-actions start">
               <button className="primary-button" onClick={scrollToFeed}>
@@ -141,10 +140,7 @@ function Home({ auth, onLogout, onNavigate, onRequireLogin }) {
       <section className="feed-section with-rail" ref={feedRef}>
         <div className="content-main">
           {auth.isAuthenticated && (
-            <CreatePost
-              currentUser={auth.user}
-              onCreated={fetchPosts}
-            />
+            <CreatePost currentUser={auth.user} onCreated={fetchPosts} />
           )}
 
           <div className="section-heading">

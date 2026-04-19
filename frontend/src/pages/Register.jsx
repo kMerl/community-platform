@@ -1,5 +1,5 @@
 import { useState } from "react";
-
+import OTPVerification from "../components/OTPVerification";
 import API from "../api";
 
 function Register({ onAuthSuccess, onNavigate }) {
@@ -8,6 +8,8 @@ function Register({ onAuthSuccess, onNavigate }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showOTPVerification, setShowOTPVerification] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState("");
 
   const handleRegister = async (e) => {
     e.preventDefault();
@@ -16,13 +18,36 @@ function Register({ onAuthSuccess, onNavigate }) {
 
     try {
       const res = await API.post("/auth/register", { name, email, password });
-      onAuthSuccess(res.data);
+      setRegisteredEmail(email);
+      setShowOTPVerification(true);
     } catch (err) {
       setError(err.response?.data?.message || "Registration failed");
     } finally {
       setLoading(false);
     }
   };
+
+  const handleResendOTP = async () => {
+    try {
+      await API.post("/auth/send-otp", { email: registeredEmail });
+      setError("");
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to resend OTP");
+    }
+  };
+
+  if (showOTPVerification) {
+    return (
+      <OTPVerification
+        email={registeredEmail}
+        onSuccess={(res) => {
+          onAuthSuccess(res.data);
+        }}
+        onNavigate={onNavigate}
+        onResendOTP={handleResendOTP}
+      />
+    );
+  }
 
   return (
     <main className="auth-page register-tone">
